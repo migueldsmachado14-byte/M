@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Atire a bola ao gol</title>
+  <style>
+    :root {
+      --bg-dark: rgba(10, 14, 24, 0.88);
+      --panel: rgba(18, 25, 42, 0.92);
+      --accent: #00e676;
+      --blue: #1e88e5;
+      --red: #e53935;
+      --gold: #ffca28;
+      --border: rgba(255, 255, 255, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #060911;
+      color: #fff;
+    }
+
+    #gameCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+
+    /* Overlay exclusivo celular */
+    #desktopWarning {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: radial-gradient(circle at center, #131c31 0%, #050811 100%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+    }
+    #desktopWarning h1 { color: var(--accent); margin-bottom: 8px; }
+    #desktopWarning p { max-width: 440px; color: #cfd8dc; line-height: 1.5; }
+    #btnBypassMobile {
+      margin-top: 20px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.08);
+      color: #90a4ae;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* Camada de Tags 3D->2D */
+    #nameTagsLayer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      overflow: hidden;
+    }
+    .player-tag {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      text-shadow: 0 1px 3px #000;
+      background: rgba(0, 0, 0, 0.62);
+      border: 1px solid rgba(255,255,255,0.25);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .player-tag.team-blue { border-color: #42a5f5; color: #bbdefb; }
+    .player-tag.team-red { border-color: #ef5350; color: #ffcdd2; }
+    .voice-wave {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #00e676;
+      box-shadow: 0 0 6px #00e676;
+    }
+
+    /* Botões globais topo */
+    .top-utility-bar {
+      position: fixed;
+      top: 8px;
+      right: 10px;
+      z-index: 50;
+      display: flex;
+      gap: 6px;
+    }
+    .util-btn {
+      background: rgba(12, 18, 32, 0.85);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      pointer-events: auto;
+    }
+    .util-btn.active { border-color: var(--accent); color: var(--accent); }
+
+    /* LOBBY UI */
+    #lobbyUI {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 10px;
+      pointer-events: none;
+    }
+    #lobbyUI.hidden { display: none; }
+
+    .lobby-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-right: 110px;
+      pointer-events: auto;
+    }
+
+    .brand-title {
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+    }
+    .brand-title h1 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 0.4px;
+      background: linear-gradient(90deg, #42a5f5, #fff, #ef5350);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
+    }
+    .player-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+    }
+    .player-badge input {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: 6px;
+      padding: 3px 6px;
+      width: 95px;
+      font-size: 12px;
+      font-weight: 700;
+      touch-action: auto;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .id-pill {
+      background: rgba(0, 230, 118, 0.16);
+      color: var(--accent);
+      border: 1px solid rgba(0, 230, 118, 0.4);
+      padding: 2px 7px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* Corpo do lobby */
+    .lobby-main {
+      display: flex;
+      flex: 1;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 6px;
+      min-height: 0;
+    }
+
+    .lobby-panel {
+      width: min(360px, 56vw);
+      max-height: 74vh;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      pointer-events: auto;
+    }
+
+    .tabs-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.25);
+    }
+    .tab-btn {
+      padding: 9px 4px;
+      background: none;
+      border: none;
+      color: #90a4ae;
+      font-size: 12px;
+      font-weight: 700;
+      border-bottom: 2px solid transparent;
+    }
+    .tab-btn.active {
+      color: #fff;
+      border-bottom-color: var(--accent);
+      background: rgba(0, 230, 118, 0.08);
+    }
+
+    .tab-content {
+      padding: 10px;
+      overflow-y: auto;
+      flex: 1;
+      touch-action: pan-y;
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    .section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #90a4ae;
+      margin: 8px 0 5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .grid-options {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+    .opt-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: #cfd8dc;
+      padding: 7px 6px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .opt-btn.selected {
+      background: rgba(0, 230, 118, 0.18);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .roster-box {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .team-col {
+      background: rgba(0,0,0,0.28);
+      border-radius: 8px;
+      padding: 6px;
+      border: 1px solid var(--border);
+    }
+    .team-col.blue { border-top: 3px solid var(--blue); }
+    .team-col.red { border-top: 3px solid var(--red); }
+    .team-col h4 { margin: 0 0 4px; font-size: 11px; }
+    .roster-item {
+      font-size: 10px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.05);
+      margin-bottom: 3px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .start-btn {
+      width: 100%;
+      margin-top: 10px;
+      padding: 11px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #00e676, #00b248);
+      color: #041c0d;
+      font-weight: 900;
+      font-size: 14px;
+      letter-spacing: 0.6px;
+      box-shadow: 0 4px 16px rgba(0, 230, 118, 0.35);
+    }
+
+    /* Amigos */
+    .add-friend-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .add-friend-row input {
+      flex: 1;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      color: #fff;
+      font-size: 12px;
+      touch-action: auto;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .small-action {
+      background: var(--blue);
+      border: none;
+      color: #fff;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .friend-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+    }
+    .friend-info { display: flex; align-items: center; gap: 7px; }
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+    .status-dot.online { background: #00e676; box-shadow: 0 0 6px #00e676; }
+    .status-dot.offline { background: #607d8b; }
+    .friend-meta { font-size: 10px; color: #90a4ae; }
+
+    /* Voz */
+    .voice-box {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+    .mic-meter-bg {
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    #micMeterBar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #00e676, #ffca28, #ef5350);
+      transition: width 0.08s;
+    }
+
+    /* Direita do lobby: Card rápido do avatar */
+    .lobby-right-hint {
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: #cfd8dc;
+      pointer-events: auto;
+      max-width: 190px;
+      text-align: right;
+    }
+
+    /* MODAL CONVITE / TORNEIO */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: rgba(0,0,0,0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-card {
+      background: #121a2d;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      width: min(460px, 94vw);
+      max-height: 86vh;
+      overflow-y: auto;
+      touch-action: pan-y;
+    }
+    .modal-card h3 { margin: 0 0 8px; font-size: 16px; }
+
+    .bracket-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .bracket-round {
+      background: rgba(0,0,0,0.28);
+      border-radius: 8px;
+      padding: 6px;
+      border: 1px solid var(--border);
+    }
+    .bracket-round h5 { margin: 0 0 6px; font-size: 10px; color: var(--gold); text-align: center; }
+    .match-pill {
+      font-size: 9px;
+      padding: 4px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.06);
+      margin-bottom: 4px;
+      border-left: 2px solid #546e7a;
+    }
+    .match-pill.player-match { border-left-color: var(--accent); background: rgba(0,230,118,0.12); }
+
+    /* IN-GAME HUD */
+    #matchHUD {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      pointer-events: none;
+      display: none;
+    }
+    #matchHUD.active { display: block; }
+
+    .scoreboard {
+      position: fixed;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(8, 12, 22, 0.85);
+      border: 1px solid var(--border);
+      padding: 5px 14px;
+      border-radius: 14px;
+      backdrop-filter: blur(8px);
+    }
+    .score-team { font-size: 16px; font-weight: 900; min-width: 24px; text-align: center; }
+    .score-blue { color: #42a5f5; }
+    .score-red { color: #ef5350; }
+    .match-clock {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      padding: 0 6px;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      text-align: center;
+    }
+    .match-phase-sub { font-size: 9px; color: var(--gold); display: block; }
+
+    .hud-left-actions {
+      position: fixed;
+      top: 8px;
+      left: 10px;
+      display: flex;
+      gap: 6px;
+      pointer-events: auto;
+    }
+
+    /* Joysticks e Botões Touch */
+    #joystickZone {
+      position: fixed;
+      bottom: 18px;
+      left: 18px;
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(255, 255, 255, 0.22);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #joystickKnob {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #ffffff, #90a4ae);
+      box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+      transform: translate(0px, 0px);
+    }
+
+    .action-cluster {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 188px;
+      height: 165px;
+      pointer-events: none;
+    }
+    .touch-btn {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.35);
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+      backdrop-filter: blur(4px);
+    }
+    .touch-btn:active, .touch-btn.pressed {
+      transform: scale(0.92);
+      filter: brightness(1.25);
+    }
+    #btnShoot {
+      width: 74px;
+      height: 74px;
+      right: 6px;
+      bottom: 6px;
+      background: rgba(229, 57, 53, 0.78);
+      border-color: #ff8a80;
+      font-size: 13px;
+    }
+    #btnJump {
+      width: 54px;
+      height: 54px;
+      right: 92px;
+      bottom: 10px;
+      background: rgba(30, 136, 229, 0.75);
+    }
+    #btnSprint {
+      width: 52px;
+      height: 52px;
+      right: 122px;
+      bottom: 72px;
+      background: rgba(255, 179, 0, 0.72);
+    }
+    #btnVoadora {
+      width: 64px;
+      height: 64px;
+      right: 12px;
+      bottom: 92px;
+      background: rgba(106, 27, 154, 0.78);
+      border-color: #ea80fc;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    #btnVoadora.ready {
+      background: rgba(0, 230, 118, 0.9);
+      color: #03200f;
+      border-color: #fff;
+      box-shadow: 0 0 18px #00e676;
+      animation: pulseReady 0.6s infinite alternate;
+    }
+    @keyframes pulseReady {
+      from { transform: scale(1); }
+      to { transform: scale(1.08); }
+    }
+
+    #toastBanner {
+      position: fixed;
+      top: 54px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 95;
+      background: rgba(10, 16, 28, 0.94);
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+
+    @media (max-height: 460px) {
+      .lobby-panel { max-height: 78vh; }
+      .brand-title h1 { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Tela de aviso caso aberto no PC -->
+  <div id="desktopWarning">
+    <h1>📱 Exclusivo para Celular</h1>
+    <p>O jogo <strong>"Atire a bola ao gol"</strong> foi projetado exclusivamente para smartphones com controles multi-touch na tela.</p>
+    <p style="font-size:13px; color:#90a4ae;">Abra este link pelo navegador do seu celular e gire na horizontal (paisagem) para a melhor experiência.</p>
+    <button id="btnBypassMobile">Testar visualização no navegador</button>
+  </div>
+
+  <!-- Canvas 3D Realista -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Nomes flutuantes (Lobby: Nome + ID | Partida: Apenas Nome) -->
+  <div id="nameTagsLayer"></div>
+
+  <!-- Barra utilitária global (Tela Cheia + Voz rápida) -->
+  <div class="top-utility-bar">
+    <button class="util-btn" id="btnGlobalVoice">🎙️ Voz: OFF</button>
+    <button class="util-btn" id="btnFullscreen">⛶ Tela Cheia</button>
+  </div>
+
+  <!-- Banner de avisos / gols / convites -->
+  <div id="toastBanner"></div>
+
+  <!-- LOBBY -->
+  <div id="lobbyUI">
+    <div class="lobby-header">
+      <div class="brand-title">
+        <h1>⚽ Atire a bola ao gol</h1>
+      </div>
+      <div class="player-badge">
+        <input id="playerNameInput" type="text" maxlength="14" value="Jogador1" />
+        <span class="id-pill" id="playerIdBadge">ID #4821</span>
+      </div>
+    </div>
+
+    <div class="lobby-main">
+      <div class="lobby-panel">
+        <div class="tabs-bar">
+          <button class="tab-btn active" data-tab="play">⚽ Partida</button>
+          <button class="tab-btn" data-tab="gear">🔫 Arsenal</button>
+          <button class="tab-btn" data-tab="friends">👥 Amigos & Voz</button>
+        </div>
+
+        <div class="tab-content">
+          <!-- ABA PARTIDA -->
+          <div class="tab-pane active" id="tab-play">
+            <div class="section-label">Tipo de Partida</div>
+            <div class="grid-options">
+              <button class="opt-btn selected" data-mode="amistoso">🤝 Amistoso</button>
+              <button class="opt-btn" data-mode="torneio">🏆 Torneio (Oitavas)</button>
+            </div>
+
+            <div class="section-label">Jogadores (Inclui Goleiro)</div>
+            <div class="grid-options grid-4">
+              <button class="opt-btn selected" data-size="2">2v2</button>
+              <button class="opt-btn" data-size="3">3v3</button>
+              <button class="opt-btn" data-size="4">4v4</button>
+              <button class="opt-btn" data-size="5">5v5</button>
+            </div>
+
+            <div class="section-label">Escalação (Vagas vazias = Bots)</div>
+            <div class="roster-box">
+              <div class="team-col blue">
+                <h4>🔵 Time Azul (Seu Lado)</h4>
+                <div id="blueRoster"></div>
+              </div>
+              <div class="team-col red">
+                <h4>🔴 Time Vermelho</h4>
+                <div id="redRoster"></div>
+              </div>
+            </div>
+
+            <button class="start-btn" id="btnStartMatch">INICIAR PARTIDA</button>
+            <button class="opt-btn" id="btnViewBracket" style="width:100%; margin-top:6px; display:none;">📊 Ver Chave das Oitavas</button>
+          </div>
+
+          <!-- ABA ARSENAL & VISUAL -->
+          <div class="tab-pane" id="tab-gear">
+            <div class="section-label">Armas (Balas de alto impacto)</div>
+            <div class="grid-options" id="weaponsGrid"></div>
+
+            <div class="section-label">Skins da Arma</div>
+            <div class="grid-options" id="skinsGrid"></div>
+
+            <div class="section-label">Roupas do Jogador</div>
+            <div class="grid-options" id="outfitsGrid"></div>
+
+            <div class="section-label">Acessórios</div>
+            <div class="grid-options" id="accessoriesGrid"></div>
+          </div>
+
+          <!-- ABA AMIGOS & VOZ -->
+          <div class="tab-pane" id="tab-friends">
+            <div class="voice-box">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:12px;">🎧 Canal de Voz da Sala</strong>
+                <button class="small-action" id="btnTestMic">Ativar Microfone</button>
+              </div>
+              <div style="font-size:10px; color:#90a4ae; margin-top:3px;" id="voiceStatusText">Microfone desligado</div>
+              <div class="mic-meter-bg"><div id="micMeterBar"></div></div>
+            </div>
+
+            <div class="section-label">Adicionar Amigo por ID (Sem limite)</div>
+            <div class="add-friend-row">
+              <input id="friendIdInput" type="text" placeholder="Ex: #9042 ou Nome" />
+              <button class="small-action" id="btnAddFriend">+ Add</button>
+            </div>
+
+            <div class="section-label">Lista de Amigos (<span id="friendCount">0</span>)</div>
+            <div id="friendsList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lobby-right-hint">
+        <div style="color:var(--accent); font-weight:800; margin-bottom:4px;">Preparação no Lobby</div>
+        <div>• No Lobby: Nome + ID visíveis</div>
+        <div>• Na Partida: Apenas Nome</div>
+        <div>• Voadora: Use quando a bola estiver quicando!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD DA PARTIDA -->
+  <div id="matchHUD">
+    <div class="hud-left-actions">
+      <button class="util-btn" id="btnExitMatch">🚪 Sair</button>
+    </div>
+
+    <div class="scoreboard">
+      <span class="score-team score-blue" id="scoreBlue">0</span>
+      <div class="match-clock">
+        <span id="clockText">02:00</span>
+        <span class="match-phase-sub" id="phaseBadge">AMISTOSO</span>
+      </div>
+      <span class="score-team score-red" id="scoreRed">0</span>
+    </div>
+
+    <!-- Joystick Esquerdo: Andar / Correr -->
+    <div id="joystickZone">
+      <div id="joystickKnob"></div>
+    </div>
+
+    <!-- Botões Direita: Atirar, Pular, Correr, Voadora -->
+    <div class="action-cluster">
+      <button class="touch-btn" id="btnSprint">⚡<br>Correr</button>
+      <button class="touch-btn" id="btnVoadora">🦶💨<br>Voadora</button>
+      <button class="touch-btn" id="btnJump">⬆️<br>Pular</button>
+      <button class="touch-btn" id="btnShoot">🔫<br>ATIRAR</button>
+    </div>
+  </div>
+
+  <!-- MODAL CONVITE RECEBIDO (Simulação / Aviso ao chamar amizade) -->
+  <div class="modal-overlay" id="inviteModal">
+    <div class="modal-card">
+      <h3 id="inviteTitle">📩 Aviso de Convite Enviado!</h3>
+      <p id="inviteDesc" style="font-size:13px; color:#cfd8dc;"></p>
+      <div class="section-label">Simular resposta do amigo (Escolha o lado):</div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="small-action" style="flex:1; background:var(--blue); padding:10px;" id="btnAcceptWithMe">🔵 Jogar Comigo</button>
+        <button class="small-action" style="flex:1; background:var(--red); padding:10px;" id="btnAcceptAgainstMe">🔴 Jogar Contra Mim</button>
+      </div>
+      <button class="opt-btn" style="width:100%; margin-top:8px;" id="btnDeclineInvite">Recusar / Fechar</button>
+    </div>
+  </div>
+
+  <!-- MODAL CHAVEAMENTO TORNEIO (OITAVAS) -->
+  <div class="modal-overlay" id="bracketModal">
+    <div class="modal-card">
+      <h3>🏆 Torneio Mata-Mata (Oitavas de Final)</h3>
+      <div id="bracketStatusText" style="font-size:12px; color:#00e676;"></div>
+      <div class="bracket-grid" id="bracketGrid"></div>
+      <button class="start-btn" id="btnCloseBracket" style="margin-top:12px;">Continuar</button>
+    </div>
+  </div>
+
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <script>
+  (() => {
+    // =========================================================
+    // 1. VERIFICAÇÃO EXCLUSIVA PARA CELULAR
+    // =========================================================
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      || ('ontouchstart' in window && window.innerWidth <= 1024);
+
+    const desktopWarning = document.getElementById('desktopWarning');
+    if (!isMobile) {
+      desktopWarning.style.display = 'flex';
+    }
+    document.getElementById('btnBypassMobile').addEventListener('click', () => {
+      desktopWarning.style.display = 'none';
+    });
+
+    // =========================================================
+    // 2. DADOS DO JOGO (ARMAS, SKINS, ROUPAS, ACESSÓRIOS)
+    // =========================================================
+    const WEAPONS = [
+      { id: 'rifle', name: 'Rifle Tático', rate: 170, speed: 34, power: 13.5, bulletRadius: 0.34, spread: 0.03, pellets: 1, color: 0x37474f },
+      { id: 'shotgun', name: 'Escopeta Impacto', rate: 520, speed: 29, power: 9.5, bulletRadius: 0.32, spread: 0.14, pellets: 3, color: 0x4e342e },
+      { id: 'cannon', name: 'Canhão Pesado', rate: 680, speed: 26, power: 23.0, bulletRadius: 0.52, spread: 0.01, pellets: 1, color: 0x263238 },
+      { id: 'smg', name: 'SMG Turbo', rate: 110, speed: 36, power: 9.0, bulletRadius: 0.28, spread: 0.07, pellets: 1, color: 0x455a64 }
+    ];
+
+    const GUN_SKINS = [
+      { id: 'tactical', name: 'Preto Tático', color: 0x263238, emissive: 0x000000 },
+      { id: 'gold', name: 'Ouro Real', color: 0xffd54f, emissive: 0x332200 },
+      { id: 'cyber', name: 'Neon Cyber', color: 0x00e5ff, emissive: 0x004d66 },
+      { id: 'crimson', name: 'Dragão Rubi', color: 0xd50000, emissive: 0x330000 },
+      { id: 'forest', name: 'Camuflado', color: 0x33691e, emissive: 0x0a1a05 }
+    ];
+
+    const OUTFITS = [
+      { id: 'sport', name: 'Uniforme Pro', trim: 0xffffff, armor: false },
+      { id: 'tactical', name: 'Colete Tático', trim: 0x37474f, armor: true },
+      { id: 'street', name: 'Jaqueta Street', trim: 0xffb300, armor: false },
+      { id: 'cyber', name: 'Armadura Futura', trim: 0x00e676, armor: true }
+    ];
+
+    const ACCESSORIES = [
+      { id: 'none', name: 'Sem Acessório' },
+      { id: 'cap', name: 'Boné Tático' },
+      { id: 'visor', name: 'Óculos Cyber' },
+      { id: 'cape', name: 'Capa / Mochila' }
+    ];
+
+    // =========================================================
+    // 3. ESTADO GLOBAL + AMIGOS ILIMITADOS + TORNEIO + VOZ
+    // =========================================================
+    const savedId = localStorage.getItem('abg_player_id') || ('#' + Math.floor(1000 + Math.random() * 8999));
+    localStorage.setItem('abg_player_id', savedId);
+
+    const defaultFriends = [
+      { id: '#7712', name: 'Lucas_Striker', online: true },
+      { id: '#3190', name: 'Ana_Sniper', online: true },
+      { id: '#5504', name: 'Pedro_GK', online: false },
+      { id: '#8821', name: 'Rafael_Pro', online: true }
+    ];
+
+    const state = {
+      screen: 'lobby', // 'lobby' | 'match'
+      playerName: localStorage.getItem('abg_player_name') || 'Jogador1',
+      playerId: savedId,
+      mode: 'amistoso', // 'amistoso' | 'torneio'
+      teamSize: 2, // 2v2, 3v3, 4v4, 5v5 (inclui goleiro)
+      weapon: 'rifle',
+      gunSkin: 'cyber',
+      outfit: 'sport',
+      accessory: 'visor',
+      friends: JSON.parse(localStorage.getItem('abg_friends') || 'null') || defaultFriends,
+      partyAllies: [], // amigos que escolheram jogar COM você
+      partyEnemies: [], // amigos que escolheram jogar CONTRA você
+      voiceEnabled: false,
+      micLevel: 0,
+      tournament: null
+    };
+
+    // Simula alternância leve de online/offline para realismo
+    function saveFriends() {
+      localStorage.setItem('abg_friends', JSON.stringify(state.friends));
+    }
+
+    // =========================================================
+    // 4. SISTEMA DE VOZ REAL (Web Audio + Microfone)
+    // =========================================================
+    let audioStream = null;
+    let audioCtx = null;
+    let analyser = null;
+    let micDataArray = null;
+
+    async function toggleVoice() {
+      const btnGlobal = document.getElementById('btnGlobalVoice');
+      const btnMic = document.getElementById('btnTestMic');
+      const statusTxt = document.getElementById('voiceStatusText');
+
+      if (state.voiceEnabled) {
+        if (audioStream) audioStream.getTracks().forEach(t => t.stop());
+        audioStream = null;
+        state.voiceEnabled = false;
+        state.micLevel = 0;
+        btnGlobal.textContent = '🎙️ Voz: OFF';
+        btnGlobal.classList.remove('active');
+        btnMic.textContent = 'Ativar Microfone';
+        statusTxt.textContent = 'Microfone desligado';
+        document.getElementById('micMeterBar').style.width = '0%';
+        return;
+      }
+
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(audioStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 128;
+        source.connect(analyser);
+        micDataArray = new Uint8Array(analyser.frequencyBinCount);
+        state.voiceEnabled = true;
+
+        btnGlobal.textContent = '🎙️ Voz: ON';
+        btnGlobal.classList.add('active');
+        btnMic.textContent = 'Desativar Mic';
+        statusTxt.textContent = 'Microfone ativo (Transmitindo na sala)';
+      } catch (err) {
+        showToast('Permita o acesso ao microfone nas configurações do navegador.');
+      }
+    }
+
+    function updateMicMeter() {
+      if (!state.voiceEnabled || !analyser) return;
+      analyser.getByteFrequencyData(micDataArray);
+      let sum = 0;
+      for (let i = 0; i < micDataArray.length; i++) sum += micDataArray[i];
+      const avg = sum / micDataArray.length;
+      state.micLevel = Math.min(100, Math.round(avg * 1.8));
+      document.getElementById('micMeterBar').style.width = state.micLevel + '%';
+    }
+
+    document.getElementById('btnGlobalVoice').addEventListener('click', toggleVoice);
+    document.getElementById('btnTestMic').addEventListener('click', toggleVoice);
+
+    // =========================================================
+    // 5. TELA CHEIA
+    // =========================================================
+    const btnFullscreen = document.getElementById('btnFullscreen');
+    function updateFullscreenBtn() {
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      btnFullscreen.textContent = isFs ? '↙️ Sair Tela Cheia' : '⛶ Tela Cheia';
+      btnFullscreen.classList.toggle('active', isFs);
+    }
+
+    btnFullscreen.addEventListener('click', async () => {
+      try {
+        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        if (!isFs) {
+          const el = document.documentElement;
+          if (el.requestFullscreen) await el.requestFullscreen();
+          else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+          if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(() => {});
+          }
+        } else {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+        }
+      } catch (e) {
+        showToast('Tela cheia ajustada.');
+      }
+      updateFullscreenBtn();
+    });
+    document.addEventListener('fullscreenchange', updateFullscreenBtn);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
+
+    // =========================================================
+    // 6. UI DO LOBBY, AMIZADES, CONVITES E TORNEIO (OITAVAS)
+    // =========================================================
+    let toastTimer = null;
+    function showToast(msg, duration = 2600) {
+      const el = document.getElementById('toastBanner');
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.style.display = 'none'; }, duration);
+    }
+
+    const nameInput = document.getElementById('playerNameInput');
+    nameInput.value = state.playerName;
+    document.getElementById('playerIdBadge').textContent = 'ID ' + state.playerId;
+    nameInput.addEventListener('input', () => {
+      state.playerName = nameInput.value.trim() || 'Jogador';
+      localStorage.setItem('abg_player_name', state.playerName);
+      renderRoster();
+    });
+
+    // Abas
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // Modo e Tamanho
+    document.querySelectorAll('[data-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        state.mode = btn.dataset.mode;
+        if (state.mode === 'torneio' && !state.tournament) initTournament();
+        document.getElementById('btnViewBracket').style.display = state.mode === 'torneio' ? 'block' : 'none';
+      });
+    });
+
+    document.querySelectorAll('[data-size]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-size]').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        state.teamSize = parseInt(btn.dataset.size, 10);
+        renderRoster();
+      });
+    });
+
+    function buildGearButtons() {
+      const renderGroup = (containerId, list, stateKey) => {
+        const box = document.getElementById(containerId);
+        box.innerHTML = '';
+        list.forEach(item => {
+          const b = document.createElement('button');
+          b.className = 'opt-btn' + (state[stateKey] === item.id ? ' selected' : '');
+          b.textContent = item.name;
+          b.addEventListener('click', () => {
+            state[stateKey] = item.id;
+            renderGroup(containerId, list, stateKey);
+            rebuildLobbyPreviewAvatar();
+          });
+          box.appendChild(b);
+        });
+      };
+      renderGroup('weaponsGrid', WEAPONS, 'weapon');
+      renderGroup('skinsGrid', GUN_SKINS, 'gunSkin');
+      renderGroup('outfitsGrid', OUTFITS, 'outfit');
+      renderGroup('accessoriesGrid', ACCESSORIES, 'accessory');
+    }
+
+    function renderRoster() {
+      const blueBox = document.getElementById('blueRoster');
+      const redBox = document.getElementById('redRoster');
+      blueBox.innerHTML = '';
+      redBox.innerHTML = '';
+
+      const maxPerTeam = state.teamSize;
+      const blueMembers = [{ name: state.playerName + ' (Você)', role: maxPerTeam === 2 ? 'Linha' : 'Linha' }];
+      state.partyAllies.slice(0, maxPerTeam - 1).forEach(f => blueMembers.push({ name: f.name, role: 'Amigo' }));
+      while (blueMembers.length < maxPerTeam) {
+        const isGK = blueMembers.length === maxPerTeam - 1;
+        blueMembers.push({ name: isGK ? 'Bot Goleiro' : 'Bot Atacante', role: isGK ? 'GOL' : 'BOT' });
+      }
+
+      const redMembers = [];
+      state.partyEnemies.slice(0, maxPerTeam).forEach(f => redMembers.push({ name: f.name, role: 'Amigo' }));
+      while (redMembers.length < maxPerTeam) {
+        const isGK = redMembers.length === maxPerTeam - 1;
+        redMembers.push({ name: isGK ? 'Bot Goleiro' : 'Bot Rival', role: isGK ? 'GOL' : 'BOT' });
+      }
+
+      blueMembers.forEach((m, idx) => {
+        const roleTag = idx === maxPerTeam - 1 ? '🧤GOL' : m.role;
+        blueBox.innerHTML += `<div class="roster-item"><span>${m.name}</span><span style="color:#64b5f6">${roleTag}</span></div>`;
+      });
+      redMembers.forEach((m, idx) => {
+        const roleTag = idx === maxPerTeam - 1 ? '🧤GOL' : m.role;
+        redBox.innerHTML += `<div class="roster-item"><span>${m.name}</span><span style="color:#e57373">${roleTag}</span></div>`;
+      });
+    }
+
+    // Sistema de Amigos (Ilimitado) + Notificação de Convite
+    let pendingInviteFriend = null;
+
+    function renderFriends() {
+      const list = document.getElementById('friendsList');
+      document.getElementById('friendCount').textContent = state.friends.length;
+      list.innerHTML = '';
+      state.friends.forEach((f, idx) => {
+        const inAlly = state.partyAllies.some(a => a.id === f.id);
+        const inEnemy = state.partyEnemies.some(e => e.id === f.id);
+        const sideLabel = inAlly ? '🔵 Com você' : (inEnemy ? '🔴 Contra' : '');
+
+        const card = document.createElement('div');
+        card.className = 'friend-card';
+        card.innerHTML = `
+          <div class="friend-info">
+            <span class="status-dot ${f.online ? 'online' : 'offline'}"></span>
+            <div>
+              <div style="font-size:12px; font-weight:700;">${f.name} ${sideLabel ? `<span style="font-size:10px; color:#00e676;">(${sideLabel})</span>` : ''}</div>
+              <div class="friend-meta">${f.id} • ${f.online ? 'Online' : 'Offline'}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:4px;">
+            <button class="small-action" style="background:${f.online ? '#1e88e5' : '#455a64'}; padding:5px 8px;" data-invite="${idx}">
+              ${inAlly || inEnemy ? 'Trocar' : 'Chamar'}
+            </button>
+          </div>
+        `;
+        card.querySelector('[data-invite]').addEventListener('click', () => {
+          if (!f.online) {
+            showToast(`${f.name} está Offline no momento.`);
+            return;
+          }
+          pendingInviteFriend = f;
+          document.getElementById('inviteTitle').textContent = `📩 Aviso enviado para ${f.name}`;
+          document.getElementById('inviteDesc').textContent =
+            `Um aviso apareceu na tela de ${f.name} (${f.id}) convidando para jogar com você. Seu amigo pode escolher o lado que irá jogar:`;
+          document.getElementById('inviteModal').classList.add('open');
+        });
+        list.appendChild(card);
+      });
+    }
+
+    document.getElementById('btnAddFriend').addEventListener('click', () => {
+      const input = document.getElementById('friendIdInput');
+      const raw = input.value.trim();
+      if (!raw) return;
+      const isId = raw.startsWith('#');
+      const newFriend = {
+        id: isId ? raw : ('#' + Math.floor(1000 + Math.random() * 8999)),
+        name: isId ? ('Jogador_' + raw.slice(1, 5)) : raw,
+        online: Math.random() > 0.25
+      };
+      state.friends.unshift(newFriend);
+      saveFriends();
+      input.value = '';
+      renderFriends();
+      showToast(`Amizade adicionada: ${newFriend.name} (${newFriend.id})`);
+    });
+
+    document.getElementById('btnAcceptWithMe').addEventListener('click', () => {
+      if (!pendingInviteFriend) return;
+      state.partyEnemies = state.partyEnemies.filter(x => x.id !== pendingInviteFriend.id);
+      if (!state.partyAllies.some(x => x.id === pendingInviteFriend.id)) state.partyAllies.push(pendingInviteFriend);
+      document.getElementById('inviteModal').classList.remove('open');
+      renderFriends();
+      renderRoster();
+      showToast(`${pendingInviteFriend.name} aceitou jogar COM você (Time Azul)!`);
+    });
+
+    document.getElementById('btnAcceptAgainstMe').addEventListener('click', () => {
+      if (!pendingInviteFriend) return;
+      state.partyAllies = state.partyAllies.filter(x => x.id !== pendingInviteFriend.id);
+      if (!state.partyEnemies.some(x => x.id === pendingInviteFriend.id)) state.partyEnemies.push(pendingInviteFriend);
+      document.getElementById('inviteModal').classList.remove('open');
+      renderFriends();
+      renderRoster();
+      showToast(`${pendingInviteFriend.name} escolheu jogar CONTRA você (Time Vermelho)!`);
+    });
+
+    document.getElementById('btnDeclineInvite').addEventListener('click', () => {
+      document.getElementById('inviteModal').classList.remove('open');
+    });
+
+    // =========================================================
+    // TORNEIO MATA-MATA (OITAVAS -> QUARTAS -> SEMI -> FINAL)
+    // =========================================================
+    function initTournament() {
+      const clubs = [
+        state.playerName + ' FC', 'Fúria Azul', 'Trovão Vermelho', 'Atiradores SC',
+        'Real Bala', 'Cyber United', 'Dragões FC', 'Falcões Pro',
+        'Titãs do Gol', 'Relâmpago', 'Nova Era', 'Vortex FC',
+        'Lobos Táticos', 'Estrela Norte', 'Império FC', 'Águias Ouro'
+      ];
+      state.tournament = {
+        roundIndex: 0, // 0=Oitavas, 1=Quartas, 2=Semifinal, 3=Final, 4=Campeão
+        roundNames: ['Oitavas de Final', 'Quartas de Final', 'Semifinal', 'Grande Final'],
+        rounds: [
+          Array.from({ length: 8 }, (_, i) => ({ a: clubs[i * 2], b: clubs[i * 2 + 1], winner: null })),
+          Array.from({ length: 4 }, () => ({ a: '?', b: '?', winner: null })),
+          Array.from({ length: 2 }, () => ({ a: '?', b: '?', winner: null })),
+          [{ a: '?', b: '?', winner: null }]
+        ]
+      };
+    }
+
+    function advanceTournament(playerWon) {
+      const t = state.tournament;
+      if (!t || t.roundIndex > 3) return;
+      const curRound = t.rounds[t.roundIndex];
+      curRound[0].winner = playerWon ? curRound[0].a : curRound[0].b;
+      for (let i = 1; i < curRound.length; i++) {
+        curRound[i].winner = Math.random() > 0.5 ? curRound[i].a : curRound[i].b;
+      }
+
+      if (!playerWon) {
+        showToast(`Eliminado nas ${t.roundNames[t.roundIndex]}! Torneio reiniciado.`, 3500);
+        initTournament();
+        return;
+      }
+
+      if (t.roundIndex === 3) {
+        showToast('🏆 CAMPEÃO DO TORNEIO! Parabéns!', 4500);
+        initTournament();
+        return;
+      }
+
+      const nextRound = t.rounds[t.roundIndex + 1];
+      for (let i = 0; i < nextRound.length; i++) {
+        nextRound[i].a = curRound[i * 2].winner;
+        nextRound[i].b = curRound[i * 2 + 1].winner;
+      }
+      t.roundIndex++;
+      showToast(`Vitória! Avançou para: ${t.roundNames[t.roundIndex]}!`, 3500);
+      openBracketModal();
+    }
+
+    function openBracketModal() {
+      if (!state.tournament) initTournament();
+      const t = state.tournament;
+      document.getElementById('bracketStatusText').textContent =
+        `Fase Atual: ${t.roundNames[t.roundIndex] || 'Campeão'} • Seu Time: ${t.rounds[0][0].a}`;
+      const grid = document.getElementById('bracketGrid');
+      grid.innerHTML = '';
+      t.roundNames.forEach((rName, rIdx) => {
+        const col = document.createElement('div');
+        col.className = 'bracket-round';
+        col.innerHTML = `<h5>${rName.replace(' de Final', '')}</h5>`;
+        t.rounds[rIdx].forEach((m, mIdx) => {
+          const isPlayer = mIdx === 0 && rIdx === t.roundIndex;
+          col.innerHTML += `<div class="match-pill ${isPlayer ? 'player-match' : ''}">${m.a}<br>vs ${m.b}</div>`;
+        });
+        grid.appendChild(col);
+      });
+      document.getElementById('bracketModal').classList.add('open');
+    }
+
+    document.getElementById('btnViewBracket').addEventListener('click', openBracketModal);
+    document.getElementById('btnCloseBracket').addEventListener('click', () => {
+      document.getElementById('bracketModal').classList.remove('open');
+    });
+
+    // =========================================================
+    // 7. MOTOR 3D REALISTA (THREE.JS) + TEXTURAS PROCEDURAIS
+    // =========================================================
+    const canvas = document.getElementById('gameCanvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1628);
+    scene.fog = new THREE.FogExp2(0x0b1628, 0.0085);
+
+    const camera = new THREE.PerspectiveCamera(56, window.innerWidth / window.innerHeight, 0.2, 220);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Iluminação realista de estádio
+    const hemiLight = new THREE.HemisphereLight(0xdff4ff, 0x1b4d23, 0.75);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff6e5, 1.35);
+    sunLight.position.set(18, 36, 22);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 5;
+    sunLight.shadow.camera.far = 110;
+    const d = 36;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    scene.add(sunLight);
+
+    // Refletores coloridos de cada lado (Azul na esquerda, Vermelho na direita)
+    const blueRim = new THREE.PointLight(0x1e88e5, 1.8, 45);
+    blueRim.position.set(-28, 12, 0);
+    scene.add(blueRim);
+
+    const redRim = new THREE.PointLight(0xe53935, 1.8, 45);
+    redRim.position.set(28, 12, 0);
+    scene.add(redRim);
+
+    // Dimensões do Campo
+    const FIELD_W = 48; // X: -24 (Azul) a +24 (Vermelho)
+    const FIELD_D = 30; // Z: -15 a +15
+    const GOAL_W = 8.4; // largura da trave no eixo Z
+    const GOAL_H = 4.2;
+
+    // Textura Procedural Realista: Gramado Verde + Linhas Brancas + Lado Azul & Lado Vermelho
+    function createFieldTexture() {
+      const c = document.createElement('canvas');
+      c.width = 2048;
+      c.height = 1280;
+      const ctx = c.getContext('2d');
+
+      // Grama verde realista com faixas de corte
+      const stripes = 12;
+      const stripeW = c.width / stripes;
+      for (let i = 0; i < stripes; i++) {
+        ctx.fillStyle = i % 2 === 0 ? '#237a32' : '#1f6d2c';
+        ctx.fillRect(i * stripeW, 0, stripeW, c.height);
+      }
+
+      // Micro-ruído de textura de grama
+      for (let i = 0; i < 28000; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.05)';
+        ctx.fillRect(Math.random() * c.width, Math.random() * c.height, 3, 3);
+      }
+
+      // Lado Azul (esquerda) e Lado Vermelho (direita) nas áreas externas/faixas laterais do campo
+      ctx.fillStyle = 'rgba(21, 101, 192, 0.32)';
+      ctx.fillRect(0, 0, c.width / 2, c.height);
+      ctx.fillStyle = 'rgba(198, 40, 40, 0.32)';
+      ctx.fillRect(c.width / 2, 0, c.width / 2, c.height);
+
+      // Mantém o gramado central bem verde e vibrante, com bordas/áreas fortemente azul e vermelha
+      ctx.fillStyle = 'rgba(34, 130, 48, 0.55)';
+      ctx.fillRect(140, 80, c.width - 280, c.height - 160);
+
+      // Faixa colorida forte dentro de cada grande área para destacar os lados
+      ctx.fillStyle = 'rgba(30, 136, 229, 0.45)';
+      ctx.fillRect(60, 260, 260, c.height - 520);
+      ctx.fillStyle = 'rgba(229, 57, 53, 0.45)';
+      ctx.fillRect(c.width - 320, 260, 260, c.height - 520);
+
+      // Linhas do Campo BRANCAS
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 10;
+      const m = 60;
+      const w = c.width - m * 2;
+      const h = c.height - m * 2;
+
+      // Retângulo externo
+      ctx.strokeRect(m, m, w, h);
+
+      // Linha do meio
+      ctx.beginPath();
+      ctx.moveTo(c.width / 2, m);
+      ctx.lineTo(c.width / 2, c.height - m);
+      ctx.stroke();
+
+      // Círculo central
+      ctx.beginPath();
+      ctx.arc(c.width / 2, c.height / 2, 165, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Ponto central
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(c.width / 2, c.height / 2, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Grandes áreas e pequenas áreas
+      ctx.strokeRect(m, c.height / 2 - 340, 260, 680);
+      ctx.strokeRect(m, c.height / 2 - 170, 100, 340);
+
+      ctx.strokeRect(c.width - m - 260, c.height / 2 - 340, 260, 680);
+      ctx.strokeRect(c.width - m - 100, c.height / 2 - 170, 100, 340);
+
+      return new THREE.CanvasTexture(c);
+    }
+
+    // Textura Bola Preta e Branca Clássica
+    function createSoccerBallTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, c.width, c.height);
+
+      ctx.fillStyle = '#111111';
+      ctx.strokeStyle = '#222222';
+      ctx.lineWidth = 3;
+
+      const cols = 6, rows = 3;
+      for (let r = 0; r < rows; r++) {
+        for (let col = 0; col < cols; col++) {
+          const cx = (col + (r % 2 === 0 ? 0.5 : 0)) * (c.width / cols);
+          const cy = (r + 0.5) * (c.height / rows);
+          ctx.beginPath();
+          for (let k = 0; k < 5; k++) {
+            const ang = (k * 2 * Math.PI) / 5 - Math.PI / 2;
+            const px = cx + Math.cos(ang) * 24;
+            const py = cy + Math.sin(ang) * 24;
+            if (k === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      return new THREE.CanvasTexture(c);
+    }
+
+    // Construir Estádio
+    const fieldGeo = new THREE.PlaneGeometry(FIELD_W + 4, FIELD_D + 4);
+    const fieldMat = new THREE.MeshStandardMaterial({
+      map: createFieldTexture(),
+      roughness: 0.85,
+      metalness: 0.05
+    });
+    const fieldMesh = new THREE.Mesh(fieldGeo, fieldMat);
+    fieldMesh.rotation.x = -Math.PI / 2;
+    fieldMesh.receiveShadow = true;
+    scene.add(fieldMesh);
+
+    // Muretas coloridas: Azul do lado esquerdo, Vermelho do lado direito
+    function addStadiumWalls() {
+      const wallMatBlue = new THREE.MeshStandardMaterial({ color: 0x1565c0, roughness: 0.4 });
+      const wallMatRed = new THREE.MeshStandardMaterial({ color: 0xc62828, roughness: 0.4 });
+
+      // Lado Norte e Sul divididos em Azul e Vermelho
+      [-(FIELD_D / 2 + 1.2), FIELD_D / 2 + 1.2].forEach(z => {
+        const bWall = new THREE.Mesh(new THREE.BoxGeometry(FIELD_W / 2 + 1, 1.3, 0.6), wallMatBlue);
+        bWall.position.set(-FIELD_W / 4 - 0.5, 0.65, z);
+        bWall.receiveShadow = true;
+        scene.add(bWall);
+
+        const rWall = new THREE.Mesh(new THREE.BoxGeometry(FIELD_W / 2 + 1, 1.3, 0.6), wallMatRed);
+        rWall.position.set(FIELD_W / 4 + 0.5, 0.65, z);
+        rWall.receiveShadow = true;
+        scene.add(rWall);
+      });
+
+      // Arquibancadas ao fundo para realismo
+      const standMat = new THREE.MeshStandardMaterial({ color: 0x1c2536, roughness: 0.9 });
+      const standN = new THREE.Mesh(new THREE.BoxGeometry(FIELD_W + 14, 7, 6), standMat);
+      standN.position.set(0, 3.5, -(FIELD_D / 2 + 6));
+      scene.add(standN);
+
+      const standS = standN.clone();
+      standS.position.z = FIELD_D / 2 + 6;
+      scene.add(standS);
+    }
+    addStadiumWalls();
+
+    // Traves dos Gols (Azul à esquerda X = -24, Vermelho à direita X = +24)
+    function createGoal(xPos, colorHex, dirSign) {
+      const g = new THREE.Group();
+      const postMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.4, roughness: 0.3 });
+      const netMat = new THREE.MeshStandardMaterial({
+        color: colorHex,
+        transparent: true,
+        opacity: 0.35,
+        wireframe: true
+      });
+
+      const postGeo = new THREE.CylinderGeometry(0.14, 0.14, GOAL_H, 12);
+      const p1 = new THREE.Mesh(postGeo, postMat);
+      p1.position.set(0, GOAL_H / 2, -GOAL_W / 2);
+      const p2 = p1.clone();
+      p2.position.z = GOAL_W / 2;
+
+      const crossGeo = new THREE.CylinderGeometry(0.14, 0.14, GOAL_W + 0.28, 12);
+      const cross = new THREE.Mesh(crossGeo, postMat);
+      cross.rotation.x = Math.PI / 2;
+      cross.position.set(0, GOAL_H, 0);
+
+      const netBox = new THREE.Mesh(new THREE.BoxGeometry(2.4, GOAL_H, GOAL_W), netMat);
+      netBox.position.set(dirSign * 1.2, GOAL_H / 2, 0);
+
+      g.add(p1, p2, cross, netBox);
+      g.position.set(xPos, 0, 0);
+      scene.add(g);
+    }
+    createGoal(-FIELD_W / 2, 0x2979ff, -1); // Gol Azul (esquerda)
+    createGoal(FIELD_W / 2, 0xff1744, 1);   // Gol Vermelho (direita)
+
+    // Bola Preta e Branca
+    const BALL_RADIUS = 0.72;
+    const ballMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(BALL_RADIUS, 28, 28),
+      new THREE.MeshStandardMaterial({ map: createSoccerBallTexture(), roughness: 0.35, metalness: 0.08 })
+    );
+    ballMesh.castShadow = true;
+    ballMesh.receiveShadow = true;
+    scene.add(ballMesh);
+
+    const ballState = {
+      pos: new THREE.Vector3(0, BALL_RADIUS, 0),
+      vel: new THREE.Vector3(0, 0, 0),
+      lastTouchTeam: null
+    };
+
+    // =========================================================
+    // 8. CONSTRUTOR DE PERSONAGEM 3D + ARMA + ROUPA + ACESSÓRIO
+    // =========================================================
+    function buildCharacterMesh(teamColorHex, outfitId, weaponId, skinId, accessoryId) {
+      const root = new THREE.Group();
+      const outfit = OUTFITS.find(o => o.id === outfitId) || OUTFITS[0];
+      const weapon = WEAPONS.find(w => w.id === weaponId) || WEAPONS[0];
+      const skin = GUN_SKINS.find(s => s.id === skinId) || GUN_SKINS[0];
+
+      const skinMat = new THREE.MeshStandardMaterial({ color: 0xf1c27d, roughness: 0.65 });
+      const jerseyMat = new THREE.MeshStandardMaterial({ color: teamColorHex, roughness: 0.55 });
+      const trimMat = new THREE.MeshStandardMaterial({ color: outfit.trim, roughness: 0.4, metalness: outfit.armor ? 0.5 : 0.1 });
+      const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1a1f29, roughness: 0.7 });
+
+      // Pernas (pivô no quadril)
+      const legGeo = new THREE.BoxGeometry(0.32, 0.85, 0.34);
+      const legL = new THREE.Mesh(legGeo, pantsMat);
+      legL.position.set(-0.22, 0.42, 0);
+      legL.castShadow = true;
+      const legR = legL.clone();
+      legR.position.x = 0.22;
+
+      // Torso
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.95, 0.48), jerseyMat);
+      torso.position.y = 1.32;
+      torso.castShadow = true;
+
+      if (outfit.armor) {
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.6, 0.54), trimMat);
+        plate.position.y = 1.38;
+        root.add(plate);
+      } else {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.2, 0.5), trimMat);
+        stripe.position.y = 1.48;
+        root.add(stripe);
+      }
+
+      // Cabeça
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 18), skinMat);
+      head.position.y = 2.08;
+      head.castShadow = true;
+
+      // Acessórios
+      if (accessoryId === 'cap') {
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.18, 16), trimMat);
+        cap.position.y = 2.34;
+        const brim = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.06, 0.35), trimMat);
+        brim.position.set(0, 2.28, 0.32);
+        root.add(cap, brim);
+      } else if (accessoryId === 'visor') {
+        const visor = new THREE.Mesh(
+          new THREE.BoxGeometry(0.56, 0.14, 0.2),
+          new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x007799 })
+        );
+        visor.position.set(0, 2.1, 0.28);
+        root.add(visor);
+      } else if (accessoryId === 'cape') {
+        const cape = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.0, 0.1), trimMat);
+        cape.position.set(0, 1.25, -0.32);
+        root.add(cape);
+      }
+
+      // Arma 3D com Skin
+      const gunGroup = new THREE.Group();
+      const gunMat = new THREE.MeshStandardMaterial({
+        color: skin.color,
+        emissive: skin.emissive,
+        metalness: 0.6,
+        roughness: 0.25
+      });
+      const barrelLen = weapon.id === 'cannon' ? 1.15 : (weapon.id === 'smg' ? 0.65 : 0.95);
+      const barrelThick = weapon.id === 'cannon' ? 0.26 : 0.16;
+      const gunBody = new THREE.Mesh(new THREE.BoxGeometry(barrelThick, barrelThick * 1.1, barrelLen), gunMat);
+      gunBody.position.set(0, 0, barrelLen * 0.35);
+      gunBody.castShadow = true;
+      gunGroup.add(gunBody);
+      gunGroup.position.set(0.46, 1.38, 0.32);
+
+      root.add(legL, legR, torso, head, gunGroup);
+      root.userData = { legL, legR, gunGroup, torso };
+      return root;
+    }
+
+    // Preview no Lobby
+    let lobbyAvatar = null;
+    function rebuildLobbyPreviewAvatar() {
+      if (lobbyAvatar) scene.remove(lobbyAvatar);
+      lobbyAvatar = buildCharacterMesh(0x1e88e5, state.outfit, state.weapon, state.gunSkin, state.accessory);
+      lobbyAvatar.position.set(2.4, 0, 2.5);
+      lobbyAvatar.rotation.y = -0.5;
+      scene.add(lobbyAvatar);
+    }
+
+    // =========================================================
+    // 9. LÓGICA DA PARTIDA, BALAS GRANDES, VOADORA & BOTS
+    // =========================================================
+    const players = [];
+    const bullets = [];
+    const nameTagsLayer = document.getElementById('nameTagsLayer');
+
+    const matchState = {
+      active: false,
+      scoreBlue: 0,
+      scoreRed: 0,
+      timeLeft: 120,
+      goalFreeze: 0,
+      lastShotTime: 0
+    };
+
+    // Controles Mobile Multi-touch
+    const input = {
+      moveX: 0,
+      moveZ: 0,
+      sprint: false,
+      jumpPressed: false,
+      shootHeld: false,
+      voadoraPressed: false
+    };
+
+    // Joystick Esquerdo
+    const joyZone = document.getElementById('joystickZone');
+    const joyKnob = document.getElementById('joystickKnob');
+    let joyTouchId = null;
+
+    function handleJoystickMove(clientX, clientY) {
+      const rect = joyZone.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const maxR = rect.width / 2 - 14;
+      let dx = clientX - cx;
+      let dy = clientY - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist > maxR) {
+        dx = (dx / dist) * maxR;
+        dy = (dy / dist) * maxR;
+      }
+      joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+      input.moveX = dx / maxR;
+      input.moveZ = dy / maxR;
+    }
+
+    joyZone.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (joyTouchId === null) {
+        const t = e.changedTouches[0];
+        joyTouchId = t.identifier;
+        handleJoystickMove(t.clientX, t.clientY);
+      }
+    });
+    joyZone.addEventListener('touchmove', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyTouchId) handleJoystickMove(t.clientX, t.clientY);
+      }
+    });
+    const resetJoy = e => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyTouchId) {
+          joyTouchId = null;
+          joyKnob.style.transform = 'translate(0px, 0px)';
+          input.moveX = 0;
+          input.moveZ = 0;
+        }
+      }
+    };
+    joyZone.addEventListener('touchend', resetJoy);
+    joyZone.addEventListener('touchcancel', resetJoy);
+
+    // Botões de ação (suporta toque e clique para testes)
+    function bindHoldButton(id, onDown, onUp) {
+      const el = document.getElementById(id);
+      el.addEventListener('touchstart', e => { e.preventDefault(); el.classList.add('pressed'); onDown(); });
+      el.addEventListener('touchend', e => { e.preventDefault(); el.classList.remove('pressed'); onUp && onUp(); });
+      el.addEventListener('touchcancel', e => { el.classList.remove('pressed'); onUp && onUp(); });
+      el.addEventListener('mousedown', () => { el.classList.add('pressed'); onDown(); });
+      el.addEventListener('mouseup', () => { el.classList.remove('pressed'); onUp && onUp(); });
+    }
+
+    bindHoldButton('btnShoot', () => { input.shootHeld = true; }, () => { input.shootHeld = false; });
+    bindHoldButton('btnSprint', () => { input.sprint = true; }, () => { input.sprint = false; });
+    bindHoldButton('btnJump', () => { input.jumpPressed = true; });
+    bindHoldButton('btnVoadora', () => { input.voadoraPressed = true; });
+
+    function clearMatchEntities() {
+      players.forEach(p => scene.remove(p.mesh));
+      players.length = 0;
+      bullets.forEach(b => scene.remove(b.mesh));
+      bullets.length = 0;
+      nameTagsLayer.innerHTML = '';
+    }
+
+    function createMatchPlayer(opts) {
+      const colorHex = opts.team === 'blue' ? 0x1e88e5 : 0xe53935;
+      const mesh = buildCharacterMesh(colorHex, opts.outfit, opts.weapon, opts.skin, opts.accessory);
+      mesh.position.copy(opts.spawn);
+      scene.add(mesh);
+
+      const tag = document.createElement('div');
+      tag.className = `player-tag team-${opts.team}`;
+      tag.innerHTML = `<span>${opts.name}</span>`;
+      nameTagsLayer.appendChild(tag);
+
+      const p = {
+        ...opts,
+        mesh,
+        tag,
+        pos: opts.spawn.clone(),
+        vel: new THREE.Vector3(),
+        yaw: opts.team === 'blue' ? Math.PI / 2 : -Math.PI / 2,
+        onGround: true,
+        lastShot: 0,
+        voadoraTimer: 0,
+        animPhase: Math.random() * 6
+      };
+      players.push(p);
+      return p;
+    }
+
+    function resetPositionsAfterGoal() {
+      ballState.pos.set(0, BALL_RADIUS + 2.2, 0);
+      ballState.vel.set(0, 0, 0);
+      players.forEach(p => {
+        p.pos.copy(p.spawn);
+        p.vel.set(0, 0, 0);
+        p.voadoraTimer = 0;
+        p.mesh.rotation.x = 0;
+      });
+    }
+
+    function startMatch() {
+      if (lobbyAvatar) {
+        scene.remove(lobbyAvatar);
+        lobbyAvatar = null;
+      }
+      clearMatchEntities();
+
+      state.screen = 'match';
+      matchState.active = true;
+      matchState.scoreBlue = 0;
+      matchState.scoreRed = 0;
+      matchState.timeLeft = 120;
+      matchState.goalFreeze = 0;
+
+      document.getElementById('lobbyUI').classList.add('hidden');
+      document.getElementById('matchHUD').classList.add('active');
+      document.getElementById('scoreBlue').textContent = '0';
+      document.getElementById('scoreRed').textContent = '0';
+
+      const phaseLabel = state.mode === 'torneio'
+        ? state.tournament.roundNames[state.tournament.roundIndex].toUpperCase()
+        : `AMISTOSO ${state.teamSize}v${state.teamSize}`;
+      document.getElementById('phaseBadge').textContent = phaseLabel;
+
+      const count = state.teamSize;
+
+      // Spawn Time Azul (lado esquerdo X < 0)
+      for (let i = 0; i < count; i++) {
+        const isGK = i === count - 1;
+        const zOff = isGK ? 0 : ((i - (count - 2) / 2) * 5.2);
+        const xOff = isGK ? -FIELD_W / 2 + 2.2 : -7.5 - (i % 2) * 3.5;
+
+        const isHuman = i === 0;
+        const allyFriend = !isHuman && !isGK ? state.partyAllies[i - 1] : null;
+        const name = isHuman ? state.playerName : (allyFriend ? allyFriend.name : (isGK ? 'Goleiro Azul' : `Bot Azul ${i}`));
+
+        createMatchPlayer({
+          name,
+          team: 'blue',
+          isHuman,
+          isGK,
+          weapon: isHuman ? state.weapon : WEAPONS[i % WEAPONS.length].id,
+          skin: isHuman ? state.gunSkin : GUN_SKINS[i % GUN_SKINS.length].id,
+          outfit: isHuman ? state.outfit : OUTFITS[i % OUTFITS.length].id,
+          accessory: isHuman ? state.accessory : 'none',
+          spawn: new THREE.Vector3(xOff, 0, zOff)
+        });
+      }
+
+      // Spawn Time Vermelho (lado direito X > 0)
+      for (let i = 0; i < count; i++) {
+        const isGK = i === count - 1;
+        const zOff = isGK ? 0 : ((i - (count - 2) / 2) * 5.2);
+        const xOff = isGK ? FIELD_W / 2 - 2.2 : 7.5 + (i % 2) * 3.5;
+
+        const enemyFriend = !isGK ? state.partyEnemies[i] : null;
+        const name = enemyFriend ? enemyFriend.name : (isGK ? 'Goleiro Verm.' : `Bot Verm. ${i + 1}`);
+
+        createMatchPlayer({
+          name,
+          team: 'red',
+          isHuman: false,
+          isGK,
+          weapon: WEAPONS[(i + 1) % WEAPONS.length].id,
+          skin: GUN_SKINS[(i + 2) % GUN_SKINS.length].id,
+          outfit: OUTFITS[(i + 1) % OUTFITS.length].id,
+          accessory: 'none',
+          spawn: new THREE.Vector3(xOff, 0, zOff)
+        });
+      }
+
+      resetPositionsAfterGoal();
+      showToast('Partida iniciada! Atire na bola até o gol!');
+    }
+
+    function exitMatchToLobby(finished = false) {
+      matchState.active = false;
+      state.screen = 'lobby';
+      clearMatchEntities();
+      document.getElementById('matchHUD').classList.remove('active');
+      document.getElementById('lobbyUI').classList.remove('hidden');
+      rebuildLobbyPreviewAvatar();
+
+      if (finished && state.mode === 'torneio') {
+        advanceTournament(matchState.scoreBlue > matchState.scoreRed);
+      }
+    }
+
+    document.getElementById('btnStartMatch').addEventListener('click', startMatch);
+    document.getElementById('btnExitMatch').addEventListener('click', () => exitMatchToLobby(false));
+
+    // Disparo de balas grandes
+    function shootBullet(player, aimDir) {
+      const now = performance.now();
+      const weapon = WEAPONS.find(w => w.id === player.weapon) || WEAPONS[0];
+      if (now - player.lastShot < weapon.rate) return;
+      player.lastShot = now;
+
+      const skin = GUN_SKINS.find(s => s.id === player.skin) || GUN_SKINS[0];
+
+      for (let p = 0; p < weapon.pellets; p++) {
+        const dir = aimDir.clone();
+        dir.x += (Math.random() - 0.5) * weapon.spread;
+        dir.y += (Math.random() - 0.5) * weapon.spread * 0.5;
+        dir.z += (Math.random() - 0.5) * weapon.spread;
+        dir.normalize();
+
+        // Bala GRANDE visível suficiente para empurrar a bola
+        const bMesh = new THREE.Mesh(
+          new THREE.SphereGeometry(weapon.bulletRadius, 12, 12),
+          new THREE.MeshStandardMaterial({
+            color: skin.id === 'tactical' ? 0xffca28 : skin.color,
+            emissive: skin.emissive || 0x442200,
+            roughness: 0.2
+          })
+        );
+        const startPos = player.pos.clone().add(new THREE.Vector3(0, 1.35, 0)).addScaledVector(dir, 1.05);
+        bMesh.position.copy(startPos);
+        bMesh.castShadow = true;
+        scene.add(bMesh);
+
+        bullets.push({
+          mesh: bMesh,
+          pos: startPos,
+          vel: dir.multiplyScalar(weapon.speed),
+          radius: weapon.bulletRadius,
+          power: weapon.power,
+          team: player.team,
+          life: 1.6
+        });
+      }
+    }
+
+    // Executa Voadora na bola (apenas quando a bola está quicando)
+    function tryVoadora(player) {
+      const distToBall = player.pos.distanceTo(ballState.pos);
+      const ballBouncing = ballState.pos.y > BALL_RADIUS + 0.12 || Math.abs(ballState.vel.y) > 0.7;
+
+      if (distToBall < 4.5) {
+        if (!ballBouncing) {
+          if (player.isHuman) showToast('A bola precisa estar quicando para dar a voadora!', 1500);
+          return;
+        }
+        player.voadoraTimer = 0.42;
+        player.vel.y = 6.5;
+        const kickDir = ballState.pos.clone().sub(player.pos).setY(0).normalize();
+        player.vel.x = kickDir.x * 14;
+        player.vel.z = kickDir.z * 14;
+
+        // Impacto poderoso na bola
+        const targetGoalX = player.team === 'blue' ? FIELD_W / 2 : -FIELD_W / 2;
+        const toGoal = new THREE.Vector3(targetGoalX - ballState.pos.x, 0, -ballState.pos.z * 0.4).normalize();
+        ballState.vel.x = toGoal.x * 26;
+        ballState.vel.z = toGoal.z * 26;
+        ballState.vel.y = 7.5;
+        if (player.isHuman) showToast('🦶💨 VOADORA PERFEITA!', 1200);
+      } else if (player.isHuman) {
+        showToast('Chegue perto da bola quicando para dar a voadora!', 1300);
+      }
+    }
+
+    // =========================================================
+    // 10. LOOP PRINCIPAL (FÍSICA, IA, CÂMERA, TAGS 2D)
+    // =========================================================
+    let lastTime = performance.now();
+
+    function updateLobbyScene(dt, now) {
+      camera.position.lerp(new THREE.Vector3(0, 4.2, 10.5), 0.08);
+      camera.lookAt(1.2, 1.3, 1.5);
+      if (lobbyAvatar) {
+        lobbyAvatar.rotation.y = Math.sin(now * 0.0008) * 0.35 - 0.35;
+        // Mostrar tag no lobby com NOME + ID
+        const p = lobbyAvatar.position.clone().add(new THREE.Vector3(0, 2.75, 0));
+        p.project(camera);
+        let tag = nameTagsLayer.querySelector('.lobby-tag');
+        if (!tag) {
+          tag = document.createElement('div');
+          tag.className = 'player-tag team-blue lobby-tag';
+          nameTagsLayer.appendChild(tag);
+        }
+        const x = (p.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-p.y * 0.5 + 0.5) * window.innerHeight;
+        tag.style.left = `${x}px`;
+        tag.style.top = `${y}px`;
+        tag.innerHTML = `${state.voiceEnabled && state.micLevel > 15 ? '<span class="voice-wave"></span>' : ''} ${state.playerName} <span style="color:#00e676">${state.playerId}</span>`;
+      }
+    }
+
+    function updateMatch(dt) {
+      // Relógio
+      if (matchState.goalFreeze > 0) {
+        matchState.goalFreeze -= dt;
+        if (matchState.goalFreeze <= 0) resetPositionsAfterGoal();
+      } else {
+        matchState.timeLeft -= dt;
+        if (matchState.timeLeft <= 0) {
+          if (state.mode === 'torneio' && matchState.scoreBlue === matchState.scoreRed) {
+            matchState.timeLeft = 0;
+            document.getElementById('clockText').textContent = 'GOL OURO';
+          } else {
+            const win = matchState.scoreBlue > matchState.scoreRed;
+            showToast(win ? '🏆 VITÓRIA DO SEU TIME!' : 'Fim de jogo!', 3000);
+            exitMatchToLobby(true);
+            return;
+          }
+        } else {
+          const mins = Math.floor(matchState.timeLeft / 60);
+          const secs = Math.floor(matchState.timeLeft % 60);
+          document.getElementById('clockText').textContent = `0${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+      }
+
+      const human = players.find(p => p.isHuman);
+      const voadoraBtn = document.getElementById('btnVoadora');
+      if (human) {
+        const nearBouncing = human.pos.distanceTo(ballState.pos) < 4.5 &&
+          (ballState.pos.y > BALL_RADIUS + 0.12 || Math.abs(ballState.vel.y) > 0.7);
+        voadoraBtn.classList.toggle('ready', nearBouncing);
+      }
+
+      // Atualizar Jogadores e Bots
+      players.forEach(p => {
+        let moveX = 0, moveZ = 0, wantSprint = false, wantJump = false, wantShoot = false;
+        let aimVec = new THREE.Vector3(p.team === 'blue' ? 1 : -1, 0, 0);
+
+        if (p.isHuman) {
+          moveX = input.moveX;
+          moveZ = input.moveZ;
+          const mag = Math.hypot(moveX, moveZ);
+          wantSprint = input.sprint || mag > 0.88;
+          wantJump = input.jumpPressed;
+          input.jumpPressed = false;
+          wantShoot = input.shootHeld;
+
+          if (input.voadoraPressed) {
+            input.voadoraPressed = false;
+            tryVoadora(p);
+          }
+
+          // Mira assistida inteligente na direção da bola ou do movimento
+          const toBall = ballState.pos.clone().sub(p.pos).setY(0);
+          if (toBall.length() > 0.2) {
+            aimVec = toBall.normalize();
+          }
+        } else {
+          // IA DOS BOTS (Goleiro + Linha)
+          const enemyGoalX = p.team === 'blue' ? FIELD_W / 2 : -FIELD_W / 2;
+          const ownGoalX = p.team === 'blue' ? -FIELD_W / 2 : FIELD_W / 2;
+
+          if (p.isGK) {
+            const targetX = ownGoalX + (p.team === 'blue' ? 2.2 : -2.2);
+            const targetZ = Math.max(-GOAL_W / 2 + 0.6, Math.min(GOAL_W / 2 - 0.6, ballState.pos.z));
+            const dx = targetX - p.pos.x;
+            const dz = targetZ - p.pos.z;
+            const d = Math.hypot(dx, dz);
+            if (d > 0.3) {
+              moveX = dx / d;
+              moveZ = dz / d;
+            }
+            const toBall = ballState.pos.clone().sub(p.pos);
+            aimVec = toBall.clone().setY(0.05).normalize();
+            if (toBall.length() < 12) wantShoot = true;
+          } else {
+            // Bot de linha: posiciona-se atrás da bola em relação ao gol adversário para atirar nela
+            const ballToGoal = new THREE.Vector3(enemyGoalX - ballState.pos.x, 0, -ballState.pos.z * 0.4).normalize();
+            const idealPos = ballState.pos.clone().addScaledVector(ballToGoal, -3.2);
+            const dx = idealPos.x - p.pos.x;
+            const dz = idealPos.z - p.pos.z;
+            const d = Math.hypot(dx, dz);
+            if (d > 0.6) {
+              moveX = dx / d;
+              moveZ = dz / d;
+              wantSprint = d > 6;
+            }
+            const toBall = ballState.pos.clone().sub(p.pos);
+            aimVec = toBall.clone().setY(0.04).normalize();
+            if (toBall.length() < 15) wantShoot = true;
+            if (ballState.pos.y > BALL_RADIUS + 0.35 && toBall.length() < 3.6 && Math.random() < 0.03) {
+              tryVoadora(p);
+            }
+          }
+        }
+
+        // Movimento horizontal (Andar vs Correr)
+        if (p.voadoraTimer > 0) {
+          p.voadoraTimer -= dt;
+          p.mesh.rotation.x = 1.1; // Pose acrobática da voadora
+        } else {
+          p.mesh.rotation.x = 0;
+          const speed = wantSprint ? 10.6 : 6.4;
+          p.vel.x = moveX * speed;
+          p.vel.z = moveZ * speed;
+        }
+
+        // Pular
+        if (wantJump && p.onGround) {
+          p.vel.y = 8.4;
+          p.onGround = false;
+        }
+
+        // Gravidade
+        p.vel.y -= 21 * dt;
+        p.pos.addScaledVector(p.vel, dt);
+
+        if (p.pos.y <= 0) {
+          p.pos.y = 0;
+          p.vel.y = 0;
+          p.onGround = true;
+        }
+
+        // Limites do campo para jogadores
+        p.pos.x = Math.max(-FIELD_W / 2 + 0.8, Math.min(FIELD_W / 2 - 0.8, p.pos.x));
+        p.pos.z = Math.max(-FIELD_D / 2 + 0.8, Math.min(FIELD_D / 2 - 0.8, p.pos.z));
+
+        p.mesh.position.copy(p.pos);
+
+        // Rotação mirando na bola / direção
+        if (wantShoot || Math.hypot(moveX, moveZ) > 0.1) {
+          const targetYaw = Math.atan2(aimVec.x, aimVec.z);
+          p.yaw = targetYaw;
+          p.mesh.rotation.y = targetYaw;
+        }
+
+        // Animação de pernas andando/correndo
+        const spd2D = Math.hypot(p.vel.x, p.vel.z);
+        if (spd2D > 0.5 && p.onGround) {
+          p.animPhase += dt * spd2D * 1.9;
+          p.mesh.userData.legL.rotation.x = Math.sin(p.animPhase) * 0.65;
+          p.mesh.userData.legR.rotation.x = -Math.sin(p.animPhase) * 0.65;
+        } else {
+          p.mesh.userData.legL.rotation.x = 0;
+          p.mesh.userData.legR.rotation.x = 0;
+        }
+
+        // Atirar
+        if (wantShoot && matchState.goalFreeze <= 0) {
+          shootBullet(p, aimVec);
+        }
+      });
+
+      // Atualizar Balas Grandes & Colisão com a Bola
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.life -= dt;
+        b.pos.addScaledVector(b.vel, dt);
+        b.mesh.position.copy(b.pos);
+
+        // Colisão com a bola
+        const dist = b.pos.distanceTo(ballState.pos);
+        if (dist <= b.radius + BALL_RADIUS) {
+          const pushDir = b.vel.clone().normalize();
+          ballState.vel.addScaledVector(pushDir, b.power * 0.65);
+          ballState.vel.y += 1.6; // Faz a bola quicar um pouco para dar voadoras!
+          b.life = 0;
+        }
+
+        if (b.life <= 0 || b.pos.y < 0) {
+          scene.remove(b.mesh);
+          bullets.splice(i, 1);
+        }
+      }
+
+      // Física da Bola
+      ballState.vel.y -= 18 * dt;
+      ballState.vel.x *= Math.pow(0.55, dt);
+      ballState.vel.z *= Math.pow(0.55, dt);
+      ballState.pos.addScaledVector(ballState.vel, dt);
+
+      // Quique no gramado
+      if (ballState.pos.y < BALL_RADIUS) {
+        ballState.pos.y = BALL_RADIUS;
+        if (Math.abs(ballState.vel.y) > 1.2) {
+          ballState.vel.y = -ballState.vel.y * 0.68;
+        } else {
+          ballState.vel.y = 0;
+        }
+      }
+
+      // Colisão lateral Z
+      if (Math.abs(ballState.pos.z) > FIELD_D / 2 - BALL_RADIUS) {
+        ballState.pos.z = Math.sign(ballState.pos.z) * (FIELD_D / 2 - BALL_RADIUS);
+        ballState.vel.z *= -0.75;
+      }
+
+      // Detecção de Gol ou Linha de Fundo
+      const inGoalMouth = Math.abs(ballState.pos.z) < GOAL_W / 2 - 0.2 && ballState.pos.y < GOAL_H;
+      if (ballState.pos.x < -FIELD_W / 2) {
+        if (inGoalMouth && matchState.goalFreeze <= 0) {
+          matchState.scoreRed++;
+          document.getElementById('scoreRed').textContent = matchState.scoreRed;
+          matchState.goalFreeze = 2.0;
+          showToast('⚽ GOL DO TIME VERMELHO!', 2000);
+        } else if (!inGoalMouth) {
+          ballState.pos.x = -FIELD_W / 2 + BALL_RADIUS;
+          ballState.vel.x *= -0.75;
+        }
+      } else if (ballState.pos.x > FIELD_W / 2) {
+        if (inGoalMouth && matchState.goalFreeze <= 0) {
+          matchState.scoreBlue++;
+          document.getElementById('scoreBlue').textContent = matchState.scoreBlue;
+          matchState.goalFreeze = 2.0;
+          showToast('⚽ GOL DO TIME AZUL!', 2000);
+        } else if (!inGoalMouth) {
+          ballState.pos.x = FIELD_W / 2 - BALL_RADIUS;
+          ballState.vel.x *= -0.75;
+        }
+      }
+
+      // Empurrão leve se o jogador encostar na bola
+      players.forEach(p => {
+        const d = p.pos.clone().setY(BALL_RADIUS).distanceTo(ballState.pos);
+        if (d < BALL_RADIUS + 0.65 && Math.abs(p.pos.y - ballState.pos.y) < 1.6) {
+          const n = ballState.pos.clone().sub(p.pos).setY(0).normalize();
+          ballState.vel.addScaledVector(n, 4.5);
+        }
+      });
+
+      ballMesh.position.copy(ballState.pos);
+      ballMesh.rotation.z -= ballState.vel.x * dt * 1.1;
+      ballMesh.rotation.x += ballState.vel.z * dt * 1.1;
+
+      // Câmera dinâmica acompanhando jogador humano + bola
+      if (human) {
+        const focus = human.pos.clone().lerp(ballState.pos, 0.35);
+        const camTarget = new THREE.Vector3(focus.x - 10, 12.5, focus.z + 18);
+        camera.position.lerp(camTarget, 0.08);
+        camera.lookAt(focus.x, 1.0, focus.z);
+      }
+
+      // Atualizar Tags 2D na Partida (APENAS O NOME, SEM ID)
+      players.forEach(p => {
+        const proj = p.pos.clone().add(new THREE.Vector3(0, 2.7, 0));
+        proj.project(camera);
+        const visible = proj.z < 1;
+        p.tag.style.display = visible ? 'flex' : 'none';
+        if (visible) {
+          const x = (proj.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-proj.y * 0.5 + 0.5) * window.innerHeight;
+          p.tag.style.left = `${x}px`;
+          p.tag.style.top = `${y}px`;
+          const speaking = p.isHuman && state.voiceEnabled && state.micLevel > 15;
+          p.tag.innerHTML = `${speaking ? '<span class="voice-wave"></span>' : ''}<span>${p.name}</span>`;
+        }
+      });
+    }
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      updateMicMeter();
+      if (state.screen === 'lobby') {
+        updateLobbyScene(dt, now);
+      } else if (matchState.active) {
+        updateMatch(dt);
+      }
+      renderer.render(scene, camera);
+    }
+
+    // Inicialização
+    buildGearButtons();
+    renderFriends();
+    renderRoster();
+    rebuildLobbyPreviewAvatar();
+    requestAnimationFrame(animate);
+  })();
+  </script>
+</body>
+</html>
